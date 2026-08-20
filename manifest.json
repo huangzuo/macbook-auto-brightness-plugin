@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "hz.auto-brightness",
+  "name": "Automatic Brightness",
+  "version": "1.0.0",
+  "author": "hz",
+  "description": "Ambient-light display brightness controls",
+  "kinds": ["bar-widget"],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "Automatic Brightness",
+    "description": "Ambient-light display brightness controls",
+    "category": "System",
+    "defaultSection": "right",
+    "allowMultiple": false
+  }
+}
