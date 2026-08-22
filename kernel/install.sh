@@ -32,4 +32,5 @@ install -Dm0644 "$SCRIPT_DIR/packaging/applesmc-als.modules-load.conf" \
   /etc/modules-load.d/applesmc-als.conf
 depmod -a
 
-printf 'Installed %s/%s for kernel %s.\n' "$PACKAGE" "$VERSION" "$(uname -r)"
+printf 'Installed %s/%s for kernel %s. Restart to activate low-light support.\n' \
+  "$PACKAGE" "$VERSION" "$(uname -r)"

@@ -2,8 +2,9 @@
   "schemaVersion": 1,
   "id": "hz.auto-brightness",
   "name": "Automatic Brightness",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "hz",
+  "license": "GPL-2.0-only",
   "description": "Ambient-light display brightness controls",
   "kinds": ["bar-widget"],
   "entryPoints": {

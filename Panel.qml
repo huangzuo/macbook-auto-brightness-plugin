@@ -16,6 +16,9 @@ Panel {
   property int offsetPercent: 0
   property int speed: 2
   property int smoothing: 5
+  property bool lowLightAvailable: false
+  property bool lowLightEnabled: false
+  property bool lowLightActive: false
   property bool statusReady: false
 
   readonly property string statusText: {
@@ -55,6 +58,9 @@ Panel {
       if (!preferenceControl.dragging) offsetPercent = Number(state.offset || 0)
       if (!speedControl.dragging) speed = Number(state.speed || 2)
       if (!smoothingControl.dragging) smoothing = Number(state.smoothing || 5)
+      lowLightAvailable = state.lowLightAvailable === true
+      lowLightEnabled = state.lowLightEnabled === true
+      lowLightActive = state.lowLightActive === true
       statusReady = true
     } catch (error) {
       statusReady = false
@@ -202,6 +208,22 @@ Panel {
           checked: root.autoEnabled
           foreground: root.barForeground
           onClicked: root.runAction([root.autoEnabled ? "disable" : "enable"])
+        }
+
+        Toggle {
+          width: parent.width
+          label: "Low-light sensor"
+          description: {
+            if (!root.statusReady) return "Checking kernel support"
+            if (!root.lowLightAvailable) return "Kernel helper unavailable; reinstall the plugin"
+            if (root.lowLightEnabled && !root.lowLightActive) return "Enabled · restart to activate"
+            if (root.lowLightActive) return "Uses higher-resolution readings in very dark rooms"
+            return "Improve ambient-light readings in very dark rooms"
+          }
+          checked: root.lowLightEnabled
+          enabled: root.statusReady && root.lowLightAvailable && !actionProc.running
+          foreground: root.barForeground
+          onClicked: root.runAction(["low-light", root.lowLightEnabled ? "disable" : "enable"])
         }
 
         Button {

@@ -23,18 +23,43 @@ The kernel patch preserves the existing `light` interface and adds:
 - `light_millilux`: the complete FP18.14 room-light value in millilux;
 - `light_raw`: `valid high_gain channel0 channel1 room_lux_fp18_14`.
 
-## Install
+## Requirements
 
-Install the user service and Omarchy plugin:
+This plugin targets Intel MacBooks with an ACPI ambient-light sensor. It also
+requires `brightnessctl`, which is included with Omarchy.
+
+## Install as an Omarchy plugin
+
+Once this repository is published, install it with Omarchy's standard plugin
+manager. Replace the example URL with the public Git repository URL:
+
+```sh
+REPOSITORY_URL="https://github.com/YOUR-NAME/macbook-auto-brightness.git"
+omarchy plugin add "$REPOSITORY_URL" --yes
+~/.config/omarchy/plugins/hz.auto-brightness/install.sh --backend-only
+omarchy plugin enable hz.auto-brightness --section right
+```
+
+Omarchy intentionally does not execute install hooks from plugins. The explicit
+backend step installs and starts the user service; it does not recopy or modify
+the Git-managed plugin checkout.
+
+To install directly from a local checkout instead, run:
 
 ```sh
 ./install.sh
 ```
 
-For the low-light fallback, install the kernel module through DKMS:
+The panel includes a **Low-light sensor** toggle. Enabling it opens the system
+authorization dialog and installs the bundled kernel module through DKMS.
+Restart after enabling it so the patched sensor driver replaces the stock
+driver. The same toggle removes the module and restores the stock driver.
+
+The terminal equivalents are:
 
 ```sh
-sudo ./kernel/install.sh
+auto-brightnessctl low-light enable
+auto-brightnessctl low-light disable
 ```
 
 The kernel installer blacklists the stock `applesmc` module and configures the
@@ -45,9 +70,9 @@ updates. The patch was built and tested against Arch Linux kernel
 ## Controls
 
 The bar widget displays measured lux, current brightness, and target
-brightness. Its panel can enable or pause automatic control, resume after a
-manual override, select Dim/Balanced/Bright presets, and tune offset, response
-speed, and smoothing.
+brightness. Its panel can enable or pause automatic control, enable or disable
+the low-light sensor driver, resume after a manual override, select
+Dim/Balanced/Bright presets, and tune offset, response speed, and smoothing.
 
 The controller is also available from a terminal:
 
@@ -55,12 +80,22 @@ The controller is also available from a terminal:
 auto-brightnessctl status
 auto-brightnessctl enable
 auto-brightnessctl disable
+auto-brightnessctl low-light enable
+auto-brightnessctl low-light disable
 auto-brightnessctl preset balanced
 ```
 
 ## Remove
 
-Remove the plugin and user service while preserving preferences:
+For a plugin installed from Git, remove the backend before asking Omarchy to
+remove the checkout:
+
+```sh
+~/.config/omarchy/plugins/hz.auto-brightness/uninstall.sh --backend-only
+omarchy plugin remove hz.auto-brightness
+```
+
+For a local-checkout installation, remove both pieces with:
 
 ```sh
 ./uninstall.sh
@@ -85,6 +120,19 @@ kernel/out-of-tree/       test-module build wrapper
 kernel/packaging/         DKMS packaging
 kernel/dist/              standalone kernel patch
 ```
+
+## Validate
+
+The repository root is the plugin root. Before publishing or submitting it to a
+plugin directory, validate the manifest and QML:
+
+```sh
+omarchy plugin validate .
+/usr/lib/qt6/bin/qmllint -I "$OMARCHY_PATH/shell" Panel.qml
+```
+
+The plugin uses the permanent third-party ID `hz.auto-brightness`; keep the
+directory name, manifest ID, and QML `moduleName` aligned if it is ever renamed.
 
 The project is licensed under GPL-2.0-only. The patched driver retains its
 original Linux kernel copyright notices.
