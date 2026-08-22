@@ -2,14 +2,12 @@
 
 set -uo pipefail
 
-readonly CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/auto-brightness/config"
-readonly STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-brightness-state"
 readonly POLL_SECONDS=2
 readonly DEAD_BAND=3
 
-SAMPLE_COUNT=5
-STEP_PERCENT=2
-OFFSET_PERCENT=0
+OFFSET_PERCENT=${1:-0}
+STEP_PERCENT=${2:-2}
+SAMPLE_COUNT=${3:-5}
 
 sensor_path=""
 sensor_source="acpi-als"
@@ -18,31 +16,15 @@ manual_override=0
 manual_lux=0
 samples=()
 
-load_config() {
-  local sample_count=5 step_percent=2 offset_percent=0
-
-  if [[ -r "$CONFIG_FILE" ]]; then
-    # shellcheck disable=SC1090
-    source "$CONFIG_FILE"
-    sample_count=${SAMPLE_COUNT:-5}
-    step_percent=${STEP_PERCENT:-2}
-    offset_percent=${OFFSET_PERCENT:-0}
-  fi
-
-  [[ "$sample_count" =~ ^[0-9]+$ ]] || sample_count=5
-  [[ "$step_percent" =~ ^[0-9]+$ ]] || step_percent=2
-  [[ "$offset_percent" =~ ^-?[0-9]+$ ]] || offset_percent=0
-  (( sample_count < 1 )) && sample_count=1
-  (( sample_count > 10 )) && sample_count=10
-  (( step_percent < 1 )) && step_percent=1
-  (( step_percent > 5 )) && step_percent=5
-  (( offset_percent < -20 )) && offset_percent=-20
-  (( offset_percent > 20 )) && offset_percent=20
-
-  SAMPLE_COUNT=$sample_count
-  STEP_PERCENT=$step_percent
-  OFFSET_PERCENT=$offset_percent
-}
+[[ "$OFFSET_PERCENT" =~ ^-?[0-9]+$ ]] || OFFSET_PERCENT=0
+[[ "$STEP_PERCENT" =~ ^[0-9]+$ ]] || STEP_PERCENT=2
+[[ "$SAMPLE_COUNT" =~ ^[0-9]+$ ]] || SAMPLE_COUNT=5
+(( OFFSET_PERCENT < -20 )) && OFFSET_PERCENT=-20
+(( OFFSET_PERCENT > 20 )) && OFFSET_PERCENT=20
+(( STEP_PERCENT < 1 )) && STEP_PERCENT=1
+(( STEP_PERCENT > 5 )) && STEP_PERCENT=5
+(( SAMPLE_COUNT < 1 )) && SAMPLE_COUNT=1
+(( SAMPLE_COUNT > 10 )) && SAMPLE_COUNT=10
 
 find_sensor() {
   local name_file device
@@ -112,26 +94,15 @@ absolute_difference() {
 }
 
 write_state() {
-  local lux=$1 current=$2 target=$3 temporary="${STATE_FILE}.tmp"
-  {
-    printf 'LUX=%d\n' "$lux"
-    printf 'BRIGHTNESS=%d\n' "$current"
-    printf 'TARGET=%d\n' "$target"
-    printf 'OFFSET_PERCENT=%d\n' "$OFFSET_PERCENT"
-    printf 'STEP_PERCENT=%d\n' "$STEP_PERCENT"
-    printf 'SAMPLE_COUNT=%d\n' "$SAMPLE_COUNT"
-    printf 'MANUAL_OVERRIDE=%d\n' "$manual_override"
-    printf 'SENSOR_SOURCE=%s\n' "$sensor_source"
-  } > "$temporary" && mv "$temporary" "$STATE_FILE"
+  printf '{"lux":%d,"brightness":%d,"target":%d,"manualOverride":%s,"sensor":"%s"}\n' \
+    "$1" "$2" "$3" "$([[ "$manual_override" == 1 ]] && printf true || printf false)" "$sensor_source"
 }
 
-load_config
 while ! find_sensor; do sleep 5; done
 last_written=$(brightness_percent) || last_written=-1
 logger -t auto-brightness "Started with sensor $sensor_path"
 
 while true; do
-  load_config
   read -r raw_lux sensor_source < <(read_lux) || {
     sensor_path=""
     while ! find_sensor; do sleep 5; done
