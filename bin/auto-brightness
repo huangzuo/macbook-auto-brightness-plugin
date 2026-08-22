@@ -6,9 +6,6 @@ readonly CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/auto-brightness/config"
 readonly STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-brightness-state"
 readonly POLL_SECONDS=2
 readonly DEAD_BAND=3
-readonly SMC_LIGHT_RAW_PATH="/sys/devices/platform/applesmc.768/light_raw"
-# MacBookPro11,1 reference: about 14 high-gain channel-0 counts per lux.
-readonly LOW_LIGHT_COUNTS_PER_LUX=14
 
 SAMPLE_COUNT=5
 STEP_PERCENT=2
@@ -61,30 +58,11 @@ find_sensor() {
 }
 
 read_lux() {
-  local value rounded valid high_gain channel0 channel1 room_lux_fp estimated
+  local value
   [[ -r "$sensor_path" ]] || return 1
   value=$(<"$sensor_path")
   [[ "$value" =~ ^[0-9]+([.][0-9]+)?$ ]] || return 1
-  rounded=$(awk -v value="$value" 'BEGIN { printf "%d\n", value + 0.5 }')
-
-  if (( rounded > 0 )) || [[ ! -r "$SMC_LIGHT_RAW_PATH" ]]; then
-    printf '%d acpi-als\n' "$rounded"
-    return
-  fi
-
-  read -r valid high_gain channel0 channel1 room_lux_fp < "$SMC_LIGHT_RAW_PATH" || {
-    printf '%d acpi-als\n' "$rounded"
-    return
-  }
-  if [[ "$valid" == 1 && "$high_gain" == 1 && "$channel0" =~ ^[0-9]+$ ]] &&
-     (( channel0 > 0 )); then
-    estimated=$(( (channel0 + LOW_LIGHT_COUNTS_PER_LUX / 2) / LOW_LIGHT_COUNTS_PER_LUX ))
-    (( estimated < 1 )) && estimated=1
-    printf '%d applesmc-raw\n' "$estimated"
-    return
-  fi
-
-  printf '%d acpi-als\n' "$rounded"
+  awk -v value="$value" 'BEGIN { printf "%d acpi-als\n", value + 0.5 }'
 }
 
 average_lux() {

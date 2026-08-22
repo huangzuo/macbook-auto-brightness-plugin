@@ -4,7 +4,6 @@ set -euo pipefail
 
 readonly PLUGIN_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins/hz.auto-brightness"
 readonly SYSTEMD_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user"
-readonly LOW_LIGHT_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/auto-brightness/kernel"
 readonly PLUGIN_ID="hz.auto-brightness"
 
 remove_plugin=true
@@ -32,15 +31,6 @@ if [[ "$remove_plugin" == true ]]; then
   rm -f -- "$PLUGIN_DIR"/*.bak.* 2>/dev/null || true
   rmdir "$PLUGIN_DIR" 2>/dev/null || true
 fi
-rm -f "$LOW_LIGHT_DIR/install.sh"
-rm -f "$LOW_LIGHT_DIR/uninstall.sh"
-rm -f "$LOW_LIGHT_DIR/drivers/hwmon/applesmc.c"
-rm -f "$LOW_LIGHT_DIR/packaging/Makefile"
-rm -f "$LOW_LIGHT_DIR/packaging/dkms.conf"
-rm -f "$LOW_LIGHT_DIR/packaging/applesmc-als.modprobe.conf"
-rm -f "$LOW_LIGHT_DIR/packaging/applesmc-als.modules-load.conf"
-rmdir "$LOW_LIGHT_DIR/drivers/hwmon" "$LOW_LIGHT_DIR/drivers" 2>/dev/null || true
-rmdir "$LOW_LIGHT_DIR/packaging" "$LOW_LIGHT_DIR" 2>/dev/null || true
 systemctl --user daemon-reload
 
 if [[ "$remove_plugin" == true ]]; then
@@ -48,4 +38,4 @@ if [[ "$remove_plugin" == true ]]; then
 else
   printf 'Removed the automatic-brightness backend.\n'
 fi
-printf 'Configuration was preserved. Remove the kernel patch separately with sudo ./kernel/uninstall.sh.\n'
+printf 'Configuration was preserved.\n'

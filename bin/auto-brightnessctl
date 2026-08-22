@@ -5,8 +5,6 @@ set -euo pipefail
 readonly CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/auto-brightness"
 readonly CONFIG_FILE="$CONFIG_DIR/config"
 readonly STATE_FILE="${XDG_RUNTIME_DIR:-/run/user/$UID}/auto-brightness-state"
-readonly LOW_LIGHT_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/auto-brightness/kernel"
-readonly SMC_LIGHT_RAW_PATH="/sys/devices/platform/applesmc.768/light_raw"
 OFFSET_PERCENT=0
 STEP_PERCENT=2
 SAMPLE_COUNT=5
@@ -35,7 +33,6 @@ write_config() {
 
 status_json() {
   local active=false lux=0 brightness=0 target=0 manual=false
-  local low_light_available=false low_light_enabled=false low_light_active=false
   local LUX=0 BRIGHTNESS=0 TARGET=0 MANUAL_OVERRIDE=0
   local actual maximum
   load_config
@@ -49,36 +46,8 @@ status_json() {
   maximum=$(brightnessctl max 2>/dev/null || printf '100')
   if (( maximum > 0 )); then brightness=$(( (actual * 100 + maximum / 2) / maximum )); fi
   systemctl --user is-active --quiet auto-brightness.service && active=true
-  if [[ -x "$LOW_LIGHT_DIR/install.sh" && -x "$LOW_LIGHT_DIR/uninstall.sh" ]] &&
-     command -v pkexec >/dev/null; then
-    low_light_available=true
-  fi
-  if [[ -e /etc/modprobe.d/applesmc-als.conf &&
-        -e /etc/modules-load.d/applesmc-als.conf ]]; then
-    low_light_enabled=true
-  fi
-  [[ -r "$SMC_LIGHT_RAW_PATH" ]] && low_light_active=true
-  printf '{"enabled":%s,"lux":%d,"brightness":%d,"target":%d,"manualOverride":%s,"offset":%d,"speed":%d,"smoothing":%d,"lowLightAvailable":%s,"lowLightEnabled":%s,"lowLightActive":%s}\n' \
-    "$active" "$lux" "$brightness" "$target" "$manual" "$OFFSET_PERCENT" "$STEP_PERCENT" "$SAMPLE_COUNT" \
-    "$low_light_available" "$low_light_enabled" "$low_light_active"
-}
-
-set_low_light() {
-  local action=${1:-} script
-  case "$action" in
-    enable) script="$LOW_LIGHT_DIR/install.sh" ;;
-    disable) script="$LOW_LIGHT_DIR/uninstall.sh" ;;
-    *) exit 2 ;;
-  esac
-  [[ -x "$script" ]] || {
-    printf 'Low-light kernel support is not installed with the plugin. Re-run the plugin installer.\n' >&2
-    exit 1
-  }
-  command -v pkexec >/dev/null || {
-    printf 'pkexec is required to change low-light kernel support.\n' >&2
-    exit 1
-  }
-  pkexec "$script"
+  printf '{"enabled":%s,"lux":%d,"brightness":%d,"target":%d,"manualOverride":%s,"offset":%d,"speed":%d,"smoothing":%d}\n' \
+    "$active" "$lux" "$brightness" "$target" "$manual" "$OFFSET_PERCENT" "$STEP_PERCENT" "$SAMPLE_COUNT"
 }
 
 set_value() {
@@ -113,13 +82,12 @@ case "${1:-status}" in
       systemctl --user enable --now auto-brightness.service
     fi ;;
   resume) systemctl --user restart auto-brightness.service ;;
-  low-light) set_low_light "${2:-}" ;;
   set) set_value "${2:-}" "${3:-}" ;;
   preset)
     case "${2:-}" in
       dim) set_value offset -10 ;; balanced) set_value offset 0 ;; bright) set_value offset 10 ;; *) exit 2 ;;
     esac ;;
   *)
-    printf 'Usage: auto-brightnessctl {status|enable|disable|toggle|resume|low-light <enable|disable>|set <offset|speed|smoothing> <value>|preset <dim|balanced|bright>}\n' >&2
+    printf 'Usage: auto-brightnessctl {status|enable|disable|toggle|resume|set <offset|speed|smoothing> <value>|preset <dim|balanced|bright>}\n' >&2
     exit 2 ;;
 esac

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "hz.auto-brightness",
   "name": "Automatic Brightness",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "author": "hz",
   "license": "GPL-2.0-only",
   "description": "Ambient-light display brightness controls",
