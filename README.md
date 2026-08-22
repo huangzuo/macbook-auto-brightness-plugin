@@ -34,15 +34,19 @@ Once this repository is published, install it with Omarchy's standard plugin
 manager. Replace the example URL with the public Git repository URL:
 
 ```sh
-REPOSITORY_URL="https://github.com/YOUR-NAME/macbook-auto-brightness.git"
+REPOSITORY_URL="https://github.com/huangzuo/macbook-auto-brightness-plugin.git"
 omarchy plugin add "$REPOSITORY_URL" --yes
-~/.config/omarchy/plugins/hz.auto-brightness/install.sh --backend-only
 omarchy plugin enable hz.auto-brightness --section right
 ```
 
-Omarchy intentionally does not execute install hooks from plugins. The explicit
-backend step installs and starts the user service; it does not recopy or modify
-the Git-managed plugin checkout.
+Omarchy intentionally does not execute install hooks from plugins. On first
+open, the panel detects the missing backend and offers **Set up backend**. This
+installs and starts the user service without modifying the Git-managed plugin
+checkout. The same setup can be performed from a terminal:
+
+```sh
+~/.config/omarchy/plugins/hz.auto-brightness/install.sh --backend-only
+```
 
 To install directly from a local checkout instead, run:
 

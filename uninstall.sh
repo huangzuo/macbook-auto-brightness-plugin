@@ -28,6 +28,8 @@ rm -f "$SYSTEMD_DIR/auto-brightness.service"
 if [[ "$remove_plugin" == true ]]; then
   rm -f "$PLUGIN_DIR/manifest.json"
   rm -f "$PLUGIN_DIR/Panel.qml"
+  # Omarchy Shell may leave hot-reload backups beside the plugin files.
+  rm -f -- "$PLUGIN_DIR"/*.bak.* 2>/dev/null || true
   rmdir "$PLUGIN_DIR" 2>/dev/null || true
 fi
 rm -f "$LOW_LIGHT_DIR/install.sh"

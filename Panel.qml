@@ -20,8 +20,12 @@ Panel {
   property bool lowLightEnabled: false
   property bool lowLightActive: false
   property bool statusReady: false
+  property bool backendReady: false
+  property bool installingBackend: false
+  property string backendError: ""
 
   readonly property string statusText: {
+    if (!backendReady) return "BACKEND SETUP REQUIRED"
     if (!statusReady) return "CHECKING SENSOR"
     if (!autoEnabled) return "AUTOMATIC CONTROL PAUSED"
     if (manualOverride) return "MANUAL OVERRIDE"
@@ -41,8 +45,22 @@ Panel {
     if (!statusProc.running) statusProc.running = true
   }
 
+  function pluginPath(fileName) {
+    var value = String(Qt.resolvedUrl(fileName) || "")
+    if (value.indexOf("file://") === 0) value = value.substring(7)
+    try { return decodeURIComponent(value) } catch (error) { return value }
+  }
+
+  function installBackend() {
+    if (installingBackend || backendProc.running) return
+    backendError = ""
+    installingBackend = true
+    backendProc.command = ["bash", pluginPath("install.sh"), "--backend-only"]
+    backendProc.running = true
+  }
+
   function runAction(arguments) {
-    if (actionProc.running) return
+    if (!backendReady || actionProc.running) return
     actionProc.command = ["auto-brightnessctl"].concat(arguments)
     actionProc.running = true
   }
@@ -50,6 +68,8 @@ Panel {
   function applyStatus(raw) {
     try {
       var state = JSON.parse(String(raw || "{}"))
+      backendReady = true
+      backendError = ""
       autoEnabled = state.enabled === true
       manualOverride = state.manualOverride === true
       lux = Number(state.lux || 0)
@@ -63,6 +83,7 @@ Panel {
       lowLightActive = state.lowLightActive === true
       statusReady = true
     } catch (error) {
+      backendReady = false
       statusReady = false
     }
   }
@@ -86,6 +107,25 @@ Panel {
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.applyStatus(text)
+    }
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: if (text) root.backendError = text.trim()
+    }
+  }
+
+  Process {
+    id: backendProc
+    stdout: StdioCollector { waitForEnd: true }
+    stderr: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: if (text) root.backendError = text.trim()
+    }
+    onRunningChanged: {
+      if (!running) {
+        root.installingBackend = false
+        Qt.callLater(root.refresh)
+      }
     }
   }
 
@@ -201,11 +241,57 @@ Panel {
           StatCard { width: (parent.width - parent.spacing * 2) / 3; label: "TARGET"; value: root.targetBrightness + "%"; detail: root.manualOverride ? "Waiting" : "Automatic" }
         }
 
+        BorderSurface {
+          visible: !root.backendReady
+          width: parent.width
+          implicitHeight: setupColumn.implicitHeight + Style.space(24)
+          radius: Style.cornerRadius
+          color: Qt.rgba(root.barForeground.r, root.barForeground.g, root.barForeground.b, 0.07)
+          borderSpec: Border.controlSpec("normal", root.barForeground, Color.accent)
+
+          Column {
+            id: setupColumn
+            anchors.fill: parent
+            anchors.margins: Style.space(12)
+            spacing: Style.space(8)
+
+            Text {
+              width: parent.width
+              text: root.installingBackend ? "Setting up automatic brightness…" : "Backend setup required"
+              color: root.barForeground
+              font.family: root.bar ? root.bar.fontFamily : Style.font.family
+              font.pixelSize: Style.font.subtitle
+              font.bold: true
+            }
+
+            Text {
+              visible: !root.installingBackend
+              width: parent.width
+              text: root.backendError || "Install the user service and controller to start automatic brightness."
+              color: Qt.darker(root.barForeground, 1.3)
+              wrapMode: Text.WordWrap
+              font.family: root.bar ? root.bar.fontFamily : Style.font.family
+              font.pixelSize: Style.font.caption
+            }
+
+            Button {
+              visible: !root.installingBackend
+              width: parent.width
+              text: "Set up backend"
+              foreground: root.barForeground
+              fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
+              bordered: true
+              onClicked: root.installBackend()
+            }
+          }
+        }
+
         Toggle {
           width: parent.width
           label: "Automatic control"
           description: "Adjust display brightness as the room lighting changes"
           checked: root.autoEnabled
+          enabled: root.backendReady && !actionProc.running
           foreground: root.barForeground
           onClicked: root.runAction([root.autoEnabled ? "disable" : "enable"])
         }
@@ -221,13 +307,14 @@ Panel {
             return "Improve ambient-light readings in very dark rooms"
           }
           checked: root.lowLightEnabled
-          enabled: root.statusReady && root.lowLightAvailable && !actionProc.running
+          enabled: root.backendReady && root.statusReady && root.lowLightAvailable && !actionProc.running
           foreground: root.barForeground
           onClicked: root.runAction(["low-light", root.lowLightEnabled ? "disable" : "enable"])
         }
 
         Button {
           visible: root.manualOverride && root.autoEnabled
+          enabled: root.backendReady
           width: parent.width
           text: "Resume automatic control"
           iconText: "󰑐"
@@ -248,6 +335,7 @@ Panel {
           tickCount: 5
           suffix: "%"
           showPlus: true
+          enabled: root.backendReady
           onPreviewed: function(value) { root.offsetPercent = value }
           onCommitted: function(value) { root.runAction(["set", "offset", String(value)]) }
         }
@@ -259,18 +347,21 @@ Panel {
             width: (parent.width - parent.spacing * 2) / 3
             text: "Dim"; foreground: root.barForeground; fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
             bordered: true; selected: root.offsetPercent === -10
+            enabled: root.backendReady
             onClicked: root.runAction(["preset", "dim"])
           }
           Button {
             width: (parent.width - parent.spacing * 2) / 3
             text: "Balanced"; foreground: root.barForeground; fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
             bordered: true; selected: root.offsetPercent === 0
+            enabled: root.backendReady
             onClicked: root.runAction(["preset", "balanced"])
           }
           Button {
             width: (parent.width - parent.spacing * 2) / 3
             text: "Bright"; foreground: root.barForeground; fontFamily: root.bar ? root.bar.fontFamily : Style.font.family
             bordered: true; selected: root.offsetPercent === 10
+            enabled: root.backendReady
             onClicked: root.runAction(["preset", "bright"])
           }
         }
@@ -285,6 +376,7 @@ Panel {
           maximum: 5
           tickCount: 5
           suffix: " / 5"
+          enabled: root.backendReady
           onPreviewed: function(value) { root.speed = value }
           onCommitted: function(value) { root.runAction(["set", "speed", String(value)]) }
         }
@@ -297,6 +389,7 @@ Panel {
           maximum: 10
           tickCount: 10
           suffix: " samples"
+          enabled: root.backendReady
           onPreviewed: function(value) { root.smoothing = value }
           onCommitted: function(value) { root.runAction(["set", "smoothing", String(value)]) }
         }
