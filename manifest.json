@@ -9,7 +9,7 @@
   "kinds": ["bar-widget", "service"],
   "entryPoints": {
     "barWidget": "Panel.qml",
-    "service": "Backend.qml"
+    "service": "Service.qml"
   },
   "barWidget": {
     "displayName": "Automatic Brightness",

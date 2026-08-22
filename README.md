@@ -53,12 +53,12 @@ omarchy plugin remove hz.auto-brightness
 
 ```text
 Panel.qml                bar widget and controls
-Backend.qml              singleton Quickshell service and settings owner
+Service.qml              singleton Quickshell service and settings owner
 bin/auto-brightness      child process for sensor sampling and brightness logic
 manifest.json            Omarchy plugin metadata and entry points
 ```
 
-`Backend.qml` owns the child process. Omarchy destroys the service when the
+`Service.qml` owns the child process. Omarchy destroys the service when the
 plugin is disabled or removed, which terminates the child automatically. The
 backend reads JSON status lines from the child and shares live state with every
 bar instance, avoiding duplicate controllers on multi-monitor configurations.
@@ -67,7 +67,7 @@ bar instance, avoiding duplicate controllers on multi-monitor configurations.
 
 ```sh
 omarchy plugin validate .
-/usr/lib/qt6/bin/qmllint -I "$OMARCHY_PATH/shell" Panel.qml Backend.qml
+/usr/lib/qt6/bin/qmllint -I "$OMARCHY_PATH/shell" Panel.qml Service.qml
 bash -n bin/auto-brightness
 ```
 
